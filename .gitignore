@@ -1,0 +1,7 @@
+# Ignore the build and lib dirs
+build/*
+lib/*:
+
+# Ignore the executables
+bin/*
+*.o

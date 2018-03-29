@@ -14,6 +14,8 @@ int main(int argc, const char** argv)
 	// Canny's related parameters
 	const double lowThreshold = 60.0;
 	const double highThreshold = 150.0;
+	const int minLineLength = 50;
+    const int maxLineGap = 10;
 	int ratio = 3;
 	int kernel_size = 3;
     int houghVote = 200;
@@ -62,16 +64,35 @@ int main(int argc, const char** argv)
 		cv::Mat masked_image;
 		masked_image = region_of_interest(edges, vertices);
 
+
+        //Probabilistic Hough Line Transform
 		std::vector<cv::Vec4i> lines;
 		
-		cv::HoughLinesP(masked_image, lines, 1.0f, (float) (CV_PI / 180.0f), 10, 5);
+		cv::HoughLinesP(masked_image, lines, 1.0f, (float) (CV_PI / 180.0f), minLineLength, maxLineGap);
 		cv::Mat line_image = cv::Mat::zeros(src.rows, src.cols, src.type());
 
-		for (size_t i = 0; i < lines.size(); ++i)
+		/*for (size_t i = 0; i < lines.size(); ++i)
 		{
 		    cv::Vec4i l = lines[i];
 		    cv::line(line_image, cv::Point(l[0], l[1]), cv::Point(l[2], l[3]), cv::Scalar(0, 0, 255), 3, cv::LINE_AA);
+		}*/
+		
+		for (size_t i = 0; i < lines.size(); ++i)
+		{
+		    cv::Vec4i l = lines[i];
+		    cv::Point p1 = cv::Point(l[0], l[1]);
+		    cv::Point p2 = cv::Point(l[2], l[3]);
+		    double slope = 0.0;
+		    
+		    if(p2.x - p1.x != 0)
+		        slope = (p2.y - p1.y) / (double)(p2.x - p1.x);
+		       
+            if(slope < 0)
+                cv::line(line_image, cv::Point(l[0], l[1]), cv::Point(l[2], l[3]), cv::Scalar(0, 0, 255), 3, cv::LINE_AA);
+            else
+                cv::line(line_image, cv::Point(l[0], l[1]), cv::Point(l[2], l[3]), cv::Scalar(255, 0, 0), 3, cv::LINE_AA);
 		}
+		
 		
         cv::line(line_image, cv::Point(int(src.cols/2), int(src.rows)), cv::Point(int(src.cols/2), int(src.rows-50)), cv::Scalar(0, 255, 0), 3, cv::LINE_AA);
 
