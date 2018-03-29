@@ -77,23 +77,81 @@ int main(int argc, const char** argv)
 		    cv::line(line_image, cv::Point(l[0], l[1]), cv::Point(l[2], l[3]), cv::Scalar(0, 0, 255), 3, cv::LINE_AA);
 		}*/
 		
+		std::vector<cv::Vec2i> r, l;
+		
 		for (size_t i = 0; i < lines.size(); ++i)
 		{
-		    cv::Vec4i l = lines[i];
-		    cv::Point p1 = cv::Point(l[0], l[1]);
-		    cv::Point p2 = cv::Point(l[2], l[3]);
-		    double slope = 0.0;
+		    //= lines[i];
+		    cv::Point p1 = cv::Point(lines[i][0], lines[i][1]);
+		    cv::Point p2 = cv::Point(lines[i][2], lines[i][3]);
+		    double m = 0.0;
 		    
 		    if(p2.x - p1.x != 0)
-		        slope = (p2.y - p1.y) / (double)(p2.x - p1.x);
+		        m = (p2.y - p1.y) / (double)(p2.x - p1.x);
 		       
-            if(slope < 0)
-                cv::line(line_image, cv::Point(l[0], l[1]), cv::Point(l[2], l[3]), cv::Scalar(0, 0, 255), 3, cv::LINE_AA);
-            else
-                cv::line(line_image, cv::Point(l[0], l[1]), cv::Point(l[2], l[3]), cv::Scalar(255, 0, 0), 3, cv::LINE_AA);
+            /*if(m < 0 && p1.x < src.cols/2 && p2.x < src.cols/2)
+                cv::line(line_image, p1, p2, cv::Scalar(0, 0, 255), 3, cv::LINE_AA);
+            else if(m > 0 && p1.x > src.cols/2 && p2.x > src.cols/2)
+                cv::line(line_image, p1, p2, cv::Scalar(255, 0, 0), 3, cv::LINE_AA);*/
+            
+            // Remember coordinates in OpenCV are different (|")
+            if(m < 0 && p1.x < src.cols/2 && p2.x < src.cols/2)
+            {
+                r.push_back(p1); 
+                r.push_back(p2);
+            }
+            else if(m > 0 && p1.x > src.cols/2 && p2.x > src.cols/2)
+            {
+                l.push_back(p1); 
+                l.push_back(p2);
+            }
 		}
 		
+		cv::Vec4f r_lane, l_lane;
 		
+		if(r.size() > 0 && l.size() > 0)
+		{
+		    cv::fitLine(r, r_lane, CV_DIST_L2, 0, 0.01, 0.01);
+		    cv::fitLine(l, l_lane, CV_DIST_L2, 0, 0.01, 0.01);
+		}
+		
+		double m_r = r_lane[1]/r_lane[0];
+		int b_r = r_lane[3] - m_r * r_lane[2];
+		
+		int y0_r = src.rows/2;
+		int x0_r = (y0_r - b_r) / m_r;
+		int y1_r = src.rows;
+		int x1_r = (y1_r - b_r) / m_r;
+		
+		double m_l = l_lane[1]/l_lane[0];
+		int b_l = l_lane[3] - m_l * l_lane[2];
+		
+		int y0_l = src.rows/2;
+		int x0_l = (y0_l - b_l) / m_l;
+		int y1_l = src.rows;
+		int x1_l = (y1_l - b_l) / m_l;
+		
+		
+		// Check if there is intersections
+		float s1_x, s1_y, s2_x, s2_y;
+        s1_x = x1_r - x0_r;     s1_y = y1_r - y0_r;
+        s2_x = x1_l - x0_l;     s2_y = y1_l - y0_l;
+
+        float s, t;
+        s = (-s1_y * (x0_r - x0_l) + s1_x * (y0_r - y0_l)) / (-s2_x * s1_y + s1_x * s2_y);
+        t = ( s2_x * (y0_r - y0_l) - s2_y * (x0_r - x0_l)) / (-s2_x * s1_y + s1_x * s2_y);
+
+
+        int i_x, i_y;
+        if(s >= 0 && s <= 1 && t >= 0 && t <= 1)
+        {
+        	i_x = x0_r + (t * s1_x);
+        	i_y = y0_r + (t * s1_y);
+    	}
+		
+		cv::line(line_image, cv::Point(i_x, i_y), cv::Point(i_x, src.cols), cv::Scalar(0, 0, 255), 3, cv::LINE_AA);
+		cv::line(line_image, cv::Point(x0_r, y0_r), cv::Point(x1_r, y1_r), cv::Scalar(255, 0, 0), 3, cv::LINE_AA);
+		cv::line(line_image, cv::Point(x0_l, y0_l), cv::Point(x1_l, y1_l), cv::Scalar(255, 0, 0), 3, cv::LINE_AA);
         cv::line(line_image, cv::Point(int(src.cols/2), int(src.rows)), cv::Point(int(src.cols/2), int(src.rows-50)), cv::Scalar(0, 255, 0), 3, cv::LINE_AA);
 
 		double alpha = 0.8; 
