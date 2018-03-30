@@ -9,6 +9,11 @@ void window_management(cv::Mat& window, const std::string& windowName, bool& sho
 
 cv::Mat region_of_interest(const cv::Mat& src, const std::vector<cv::Point>& v);
 
+void get_lane(const std::vector<cv::Vec2i>& lanePoints, cv::Vec4f& lane, int& x0, int& x1, int& y0, int& y1, const int& srcWidth, const int& srcHeight);
+
+void intersection_point(cv::Point& inter, const int& x0_r, const int& x1_r, const int& y0_r, const int& y1_r, const int& x0_l, const int& x1_l, const int& y0_l, const int& y1_l);
+
+
 int main(int argc, const char** argv)
 {
 	// Canny's related parameters
@@ -19,6 +24,9 @@ int main(int argc, const char** argv)
 	int ratio = 3;
 	int kernel_size = 3;
     int houghVote = 200;
+    cv::Vec4f r_lane, l_lane;
+    int x0_r, x1_r, y0_r, y1_r;
+	int x0_l, x1_l, y0_l, y1_l;
 
 	bool showHelp = true;
 	bool fullScreen = false;
@@ -45,6 +53,9 @@ int main(int argc, const char** argv)
 	{
 		cv::Mat src;
 		cap >> src;  // Get a new Frame from the camera
+		
+		int srcWidth = src.cols;
+		int srcHeight = src.rows;
 
 		cv::cvtColor(src, edges, cv::COLOR_BGR2GRAY);
 		cv::GaussianBlur(edges, edges, cv::Size(kernel_size, kernel_size), 1.5, 1.5);
@@ -56,10 +67,10 @@ int main(int argc, const char** argv)
 
 		cv::Mat mask = cv::Mat::zeros(edges.rows, edges.cols, CV_32F);
 
-		std::vector<cv::Point> vertices{cv::Point(src.cols, src.rows), \
-										cv::Point(0, src.rows), \
-										cv::Point(int(src.cols/2-10), int(2*src.rows/3)), \
-										cv::Point(int(src.cols/2+10), int(2*src.rows/3))};
+		std::vector<cv::Point> vertices{cv::Point(srcWidth, srcHeight), \
+										cv::Point(0, srcHeight), \
+										cv::Point(int(srcWidth/2-10), int(2*srcHeight/3)), \
+										cv::Point(int(srcWidth/2+10), int(2*srcHeight/3))};
 
 		cv::Mat masked_image;
 		masked_image = region_of_interest(edges, vertices);
@@ -69,13 +80,7 @@ int main(int argc, const char** argv)
 		std::vector<cv::Vec4i> lines;
 		
 		cv::HoughLinesP(masked_image, lines, 1.0f, (float) (CV_PI / 180.0f), minLineLength, maxLineGap);
-		cv::Mat line_image = cv::Mat::zeros(src.rows, src.cols, src.type());
-
-		/*for (size_t i = 0; i < lines.size(); ++i)
-		{
-		    cv::Vec4i l = lines[i];
-		    cv::line(line_image, cv::Point(l[0], l[1]), cv::Point(l[2], l[3]), cv::Scalar(0, 0, 255), 3, cv::LINE_AA);
-		}*/
+		cv::Mat line_image = cv::Mat::zeros(srcHeight, srcWidth, src.type());
 		
 		std::vector<cv::Vec2i> r, l;
 		
@@ -89,70 +94,34 @@ int main(int argc, const char** argv)
 		    if(p2.x - p1.x != 0)
 		        m = (p2.y - p1.y) / (double)(p2.x - p1.x);
 		       
-            /*if(m < 0 && p1.x < src.cols/2 && p2.x < src.cols/2)
+            /*if(m < 0 && p1.x < srcWidth/2 && p2.x < srcWidth/2)
                 cv::line(line_image, p1, p2, cv::Scalar(0, 0, 255), 3, cv::LINE_AA);
-            else if(m > 0 && p1.x > src.cols/2 && p2.x > src.cols/2)
+            else if(m > 0 && p1.x > srcWidth/2 && p2.x > srcWidth/2)
                 cv::line(line_image, p1, p2, cv::Scalar(255, 0, 0), 3, cv::LINE_AA);*/
             
             // Remember coordinates in OpenCV are different (|")
-            if(m < 0 && p1.x < src.cols/2 && p2.x < src.cols/2)
+            if(m < 0 && p1.x < srcWidth/2 && p2.x < srcWidth/2)
             {
                 r.push_back(p1); 
                 r.push_back(p2);
             }
-            else if(m > 0 && p1.x > src.cols/2 && p2.x > src.cols/2)
+            else if(m > 0 && p1.x > srcWidth/2 && p2.x > srcWidth/2)
             {
                 l.push_back(p1); 
                 l.push_back(p2);
             }
 		}
 		
-		cv::Vec4f r_lane, l_lane;
+        get_lane(r, r_lane, x0_r, x1_r, y0_r, y1_r, srcWidth, srcHeight);
+        get_lane(l, l_lane, x0_l, x1_l, y0_l, y1_l, srcWidth, srcHeight);
 		
-		if(r.size() > 0 && l.size() > 0)
-		{
-		    cv::fitLine(r, r_lane, CV_DIST_L2, 0, 0.01, 0.01);
-		    cv::fitLine(l, l_lane, CV_DIST_L2, 0, 0.01, 0.01);
-		}
-		
-		double m_r = r_lane[1]/r_lane[0];
-		int b_r = r_lane[3] - m_r * r_lane[2];
-		
-		int y0_r = src.rows/2;
-		int x0_r = (y0_r - b_r) / m_r;
-		int y1_r = src.rows;
-		int x1_r = (y1_r - b_r) / m_r;
-		
-		double m_l = l_lane[1]/l_lane[0];
-		int b_l = l_lane[3] - m_l * l_lane[2];
-		
-		int y0_l = src.rows/2;
-		int x0_l = (y0_l - b_l) / m_l;
-		int y1_l = src.rows;
-		int x1_l = (y1_l - b_l) / m_l;
-		
-		
-		// Check if there is intersections
-		float s1_x, s1_y, s2_x, s2_y;
-        s1_x = x1_r - x0_r;     s1_y = y1_r - y0_r;
-        s2_x = x1_l - x0_l;     s2_y = y1_l - y0_l;
-
-        float s, t;
-        s = (-s1_y * (x0_r - x0_l) + s1_x * (y0_r - y0_l)) / (-s2_x * s1_y + s1_x * s2_y);
-        t = ( s2_x * (y0_r - y0_l) - s2_y * (x0_r - x0_l)) / (-s2_x * s1_y + s1_x * s2_y);
-
-
-        int i_x, i_y;
-        if(s >= 0 && s <= 1 && t >= 0 && t <= 1)
-        {
-        	i_x = x0_r + (t * s1_x);
-        	i_y = y0_r + (t * s1_y);
-    	}
-		
-		cv::line(line_image, cv::Point(i_x, i_y), cv::Point(i_x, src.cols), cv::Scalar(0, 0, 255), 3, cv::LINE_AA);
+        // Measure where is the center of the lane and where you are placed
+        int inter = x0_l + (x0_r - x0_l)/2;
+        
+		cv::line(line_image, cv::Point(inter, srcHeight), cv::Point(inter, srcHeight-50), cv::Scalar(0, 0, 255), 3, cv::LINE_AA);
 		cv::line(line_image, cv::Point(x0_r, y0_r), cv::Point(x1_r, y1_r), cv::Scalar(255, 0, 0), 3, cv::LINE_AA);
 		cv::line(line_image, cv::Point(x0_l, y0_l), cv::Point(x1_l, y1_l), cv::Scalar(255, 0, 0), 3, cv::LINE_AA);
-        cv::line(line_image, cv::Point(int(src.cols/2), int(src.rows)), cv::Point(int(src.cols/2), int(src.rows-50)), cv::Scalar(0, 255, 0), 3, cv::LINE_AA);
+        cv::line(line_image, cv::Point(int(srcWidth/2), int(srcHeight)), cv::Point(int(srcWidth/2), int(srcHeight-50)), cv::Scalar(0, 255, 0), 3, cv::LINE_AA);
 
 		double alpha = 0.8; 
 		double beta = 0.4;
@@ -214,4 +183,37 @@ cv::Mat region_of_interest(const cv::Mat& src, const std::vector<cv::Point>& v)
     return masked_image;
 }
 
+void get_lane(const std::vector<cv::Vec2i>& lanePoints, cv::Vec4f& lane, int& x0, int& x1, int& y0, int& y1, const int& srcWidth, const int& srcHeight)
+{	
+	if(lanePoints.size() > 0)
+	{
+	    cv::fitLine(lanePoints, lane, CV_DIST_L2, 0, 0.01, 0.01);
+	
+	    double m = lane[1]/lane[0];
+	    int b = lane[3] - m * lane[2];
+	
+	    y0 = srcHeight * 2/3;
+	    x0 = (y0 - b) / m;
+	    y1 = srcHeight;
+	    x1 = (y1 - b) / m;
+	}
+}
+
+// To get the intersection point between two lines (They have to have the intersection point visible)
+void intersection_point(cv::Point& inter, const int& x0_r, const int& x1_r, const int& y0_r, const int& y1_r, const int& x0_l, const int& x1_l, const int& y0_l, const int& y1_l)
+{
+    float s1_x, s1_y, s2_x, s2_y;
+    s1_x = x1_r - x0_r;     s1_y = y1_r - y0_r;
+    s2_x = x1_l - x0_l;     s2_y = y1_l - y0_l;
+
+    float s, t;
+    s = (-s1_y * (x0_r - x0_l) + s1_x * (y0_r - y0_l)) / (-s2_x * s1_y + s1_x * s2_y);
+    t = ( s2_x * (y0_r - y0_l) - s2_y * (x0_r - x0_l)) / (-s2_x * s1_y + s1_x * s2_y);
+
+    if(s >= 0 && s <= 1 && t >= 0 && t <= 1)
+    {
+    	inter.x = x0_r + (t * s1_x);
+    	inter.y = y0_r + (t * s1_y);
+	}
+}
 
