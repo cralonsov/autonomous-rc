@@ -2,6 +2,12 @@
 #include <vector>
 #include <cmath>
 #include <numeric>
+#include <linux/i2c-dev.h>
+#include <linux/types.h>
+#include <chrono>
+#include <thread>
+
+#include "PCA9685.h"
 
 #include <opencv2/opencv.hpp>
 #include <opencv2/videoio.hpp>
@@ -24,6 +30,13 @@ void intersection_point(cv::Point& inter, const int& x0_r, const int& x1_r, cons
 
 int main(int argc, const char** argv)
 {
+    // Motor related parameters
+    PCA9685 pwm(1, 0x40);
+    pwm.setPwmFreq(65);
+
+    const uint8_t motor = 0;
+    const uint8_t steering = 1;
+
 	// Canny's related parameters
 	const double lowThreshold = 60.0;
 	const double highThreshold = 150.0;
@@ -46,7 +59,7 @@ int main(int argc, const char** argv)
 							appsink";
 
 	cv::VideoCapture cap;//(gst);
-	cap.open("../docs/sample-videos/solidWhiteRight.mp4");
+	cap.open("../docs/sample-videos/solidYellowLeft.mp4");
 
 	if(!cap.isOpened())
 	{
@@ -117,10 +130,18 @@ int main(int argc, const char** argv)
 		if (key == 27)
 			break;
 			
-        //if(pos < 0)
-        //    cv::putText(dst, "Right", cv::Point(10,40), cv::FONT_HERSHEY_DUPLEX, 0.5, CV_RGB(240,240,240), 1);
-        //else
-        //    cv::putText(dst, "Left", cv::Point(10,40), cv::FONT_HERSHEY_DUPLEX, 0.5, CV_RGB(240,240,240), 1);
+        if(pos < 0)
+        {
+            pwm.setPwm(steering, SERVO_MAX);
+        	//std::this_thread::sleep_for(std::chrono::microseconds(1000000));
+            cv::putText(dst, "Right", cv::Point(10,40), cv::FONT_HERSHEY_DUPLEX, 0.5, CV_RGB(240,240,240), 1);
+        }
+        else
+        {
+            cv::putText(dst, "Left", cv::Point(10,40), cv::FONT_HERSHEY_DUPLEX, 0.5, CV_RGB(240,240,240), 1);
+            pwm.setPwm(steering, SERVO_MIN);
+        	//std::this_thread::sleep_for(std::chrono::microseconds(1000000));
+        }
 
 		window_management(dst, windowName, showHelp, fullScreen, key);
 
