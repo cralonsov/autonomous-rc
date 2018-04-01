@@ -1,19 +1,26 @@
 #include <iostream>
 #include <vector>
 #include <cmath>
+#include <numeric>
 
 #include <opencv2/opencv.hpp>
 #include <opencv2/videoio.hpp>
 #include <opencv2/highgui.hpp>
 
+
+struct Lane
+{
+    double m, b;
+};
+
+
 void window_management(cv::Mat& window, const std::string& windowName, bool& showHelp, bool& fullScreen, const char& key);
 
 cv::Mat region_of_interest(const cv::Mat& src, const std::vector<cv::Point>& v);
 
-void get_lanes(const std::vector<cv::Vec4i> lines, std::vector<cv::Vec2i>& r, std::vector<cv::Vec2i>& l, std::vector<double>& weights_r, std::vector<double>& weights_l, const int& srcWidth, const int& srcHeight);
-void draw_lane(cv::Mat& line_image, const std::vector<cv::Vec2i>& lanePoints, cv::Vec4f& lane, int& x0, int& x1, int& y0, int& y1, const int& srcWidth, const int& srcHeight, const cv::Scalar& color);
+void get_lanes(const std::vector<cv::Vec4i> lines, Lane& right, Lane& left, std::vector<double>& weights_r, std::vector<double>& weights_l, const int& srcWidth, const int& srcHeight);
+void draw_lane(cv::Mat& line_image, const Lane& lane, int& x, const int& srcWidth, const int& srcHeight, const cv::Scalar& color);
 void intersection_point(cv::Point& inter, const int& x0_r, const int& x1_r, const int& y0_r, const int& y1_r, const int& x0_l, const int& x1_l, const int& y0_l, const int& y1_l);
-
 
 int main(int argc, const char** argv)
 {
@@ -26,8 +33,7 @@ int main(int argc, const char** argv)
 	int kernel_size = 3;
     int houghVote = 200;
     cv::Vec4f r_lane, l_lane;
-    int x0_r, x1_r, y0_r, y1_r;
-	int x0_l, x1_l, y0_l, y1_l;
+    int x_r, x_l;
 
 	bool showHelp = true;
 	bool fullScreen = false;
@@ -85,17 +91,19 @@ int main(int argc, const char** argv)
 		cv::HoughLinesP(masked_image, lines, 1.0f, (float) (CV_PI / 180.0f), minLineLength, maxLineGap);
 		cv::Mat line_image = cv::Mat::zeros(srcHeight, srcWidth, src.type());
 		
-		std::vector<cv::Vec2i> r, l;
+		//std::vector<cv::Vec2i> r, l;
         std::vector<double> weights_r, weights_l;
+        Lane right, left;
 		
-		get_lanes(lines, r, l, weights_r, weights_l, srcWidth, srcHeight);
+		get_lanes(lines, right, left, weights_r, weights_l, srcWidth, srcHeight);
 		
-        draw_lane(line_image, r, r_lane, x0_r, x1_r, y0_r, y1_r, srcWidth, srcHeight, cv::Scalar(255, 0, 0));
-        draw_lane(line_image, l, l_lane, x0_l, x1_l, y0_l, y1_l, srcWidth, srcHeight, cv::Scalar(255, 0, 0));
+        draw_lane(line_image, right, x_r, srcWidth, srcHeight, cv::Scalar(255, 0, 0));
+        draw_lane(line_image, left, x_l, srcWidth, srcHeight, cv::Scalar(255, 0, 0));
+        //draw_lane(line_image, l, l_lane, x0_l, x1_l, y0_l, y1_l, srcWidth, srcHeight, cv::Scalar(255, 0, 0));
 		
         // Measure where is the center of the lane and where you are placed
         int center = srcWidth/2;
-        int inter = x0_l + (x0_r - x0_l)/2;
+        int inter = x_l + (x_r - x_l)/2;
         int pos = center - inter;      
         
 		cv::line(line_image, cv::Point(inter, srcHeight), cv::Point(inter, srcHeight-50), cv::Scalar(0, 0, 255), 3, cv::LINE_AA);
@@ -109,10 +117,10 @@ int main(int argc, const char** argv)
 		if (key == 27)
 			break;
 			
-        if(pos < 0)
-            cv::putText(dst, "Right", cv::Point(10,40), cv::FONT_HERSHEY_DUPLEX, 0.5, CV_RGB(240,240,240), 1);
-        else
-            cv::putText(dst, "Left", cv::Point(10,40), cv::FONT_HERSHEY_DUPLEX, 0.5, CV_RGB(240,240,240), 1);
+        //if(pos < 0)
+        //    cv::putText(dst, "Right", cv::Point(10,40), cv::FONT_HERSHEY_DUPLEX, 0.5, CV_RGB(240,240,240), 1);
+        //else
+        //    cv::putText(dst, "Left", cv::Point(10,40), cv::FONT_HERSHEY_DUPLEX, 0.5, CV_RGB(240,240,240), 1);
 
 		window_management(dst, windowName, showHelp, fullScreen, key);
 
@@ -166,55 +174,62 @@ cv::Mat region_of_interest(const cv::Mat& src, const std::vector<cv::Point>& v)
     return masked_image;
 }
 
-void draw_lane(cv::Mat& line_image, const std::vector<cv::Vec2i>& lanePoints, cv::Vec4f& lane, int& x0, int& x1, int& y0, int& y1, const int& srcWidth, const int& srcHeight, const cv::Scalar& color)
+
+void draw_lane(cv::Mat& line_image, const Lane& lane, int& x, const int& srcWidth, const int& srcHeight, const cv::Scalar& color)
 {	
-	if(lanePoints.size() == 0)
-	    return;
-
-    cv::fitLine(lanePoints, lane, CV_DIST_L2, 0, 0.01, 0.01);
+    int y0 = srcHeight * 2/3;
+    int x0 = (y0 - lane.b) / lane.m;
+    int y1 = srcHeight;
+    int x1 = (y1 - lane.b) / lane.m;
     
-    if(lane[0] == 0)
-        throw std::runtime_error("Division by zero in draw_lane");
-
-    // lane = (Vx, Vy, x0, y0)
-    double m = lane[1]/lane[0];
-    int b = lane[3] - m * lane[2];
-
-    y0 = srcHeight * 2/3;
-    x0 = (y0 - b) / m;
-    y1 = srcHeight;
-    x1 = (y1 - b) / m;
+    x = x0;
 	
 	cv::line(line_image, cv::Point(x0, y0), cv::Point(x1, y1), color, 3, cv::LINE_AA);
 }
 
 
-void get_lanes(const std::vector<cv::Vec4i> lines, std::vector<cv::Vec2i>& r, std::vector<cv::Vec2i>& l, std::vector<double>& weights_r, std::vector<double>& weights_l, const int& srcWidth, const int& srcHeight)
+void get_lanes(const std::vector<cv::Vec4i> lines, Lane& right, Lane& left, std::vector<double>& weights_r, std::vector<double>& weights_l, const int& srcWidth, const int& srcHeight)
 {	
+    //std::vector<cv::Vec2i> r, l;
+    std::vector<double> r_m, r_b, l_m, l_b;
+    Lane lane;
+    
 	for (size_t i = 0; i < lines.size(); ++i)
 	{
 	    cv::Point p1 = cv::Point(lines[i][0], lines[i][1]);
 	    cv::Point p2 = cv::Point(lines[i][2], lines[i][3]);
-	    double m, b, length;
+	    double length;
 	    
 	    if(p2.x - p1.x != 0)
 	    {
-	        m = (p2.y - p1.y) / (double)(p2.x - p1.x);
-	        b = p1.y - m * p1.x;
+	        lane.m = (p2.y - p1.y) / (double)(p2.x - p1.x);
+	        lane.b = p1.y - lane.m * p1.x;
 	        length = sqrt(pow(p2.x-p1.x, 2.0) + pow(p2.y-p1.y, 2.0));
 	    }
         
         // Remember coordinates in OpenCV are different (The y is upside-down)
-        if(m < 0 && p1.x < srcWidth/2 && p2.x < srcWidth/2)
+        if(lane.m < 0 && p1.x < srcWidth/2 && p2.x < srcWidth/2)
         {
-            r.push_back(p1); r.push_back(p2);
+            r_b.push_back(lane.b); r_m.push_back(lane.m);
             weights_r.push_back(length);
         }
-        else if(m > 0 && p1.x > srcWidth/2 && p2.x > srcWidth/2)
+        else if(lane.m > 0 && p1.x > srcWidth/2 && p2.x > srcWidth/2)
         {
-            l.push_back(p1); l.push_back(p2);
+            l_b.push_back(lane.b); l_m.push_back(lane.m);
             weights_l.push_back(length);
         }
+	}
+	
+	if(r_m.size() != 0)
+	{
+	    right.m = std::inner_product(weights_r.begin(), weights_r.end(), r_m.begin(), 0.0) / std::accumulate(weights_r.begin(), weights_r.end(), 0.0);
+	    right.b = std::inner_product(weights_r.begin(), weights_r.end(), r_b.begin(), 0.0) / std::accumulate(weights_r.begin(), weights_r.end(), 0.0);
+	}
+	
+	if(l_m.size() != 0)
+	{
+	    left.m = std::inner_product(weights_l.begin(), weights_l.end(), l_m.begin(), 0.0) / std::accumulate(weights_l.begin(), weights_l.end(), 0.0);
+	    left.b = std::inner_product(weights_l.begin(), weights_l.end(), l_b.begin(), 0.0) / std::accumulate(weights_l.begin(), weights_l.end(), 0.0);
 	}
 }
 
