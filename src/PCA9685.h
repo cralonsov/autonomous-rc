@@ -33,9 +33,9 @@ const int OUTDRV			= 0x04;
 
 // Configure min and max servo pulse lengths
 const int SERVO_MIN			= 260;  // Min pulse length out of 4096
-const int SERVO_MAX			= 520;  // Max pulse length out of 4096
+const int SERVO_MAX			= 530;  // Max pulse length out of 4096
 const int RIGHT_MAX			= 260;  // Min pulse length out of 4096
-const int LEFT_MAX			= 520;  // Max pulse length out of 4096
+const int LEFT_MAX			= 530;  // Max pulse length out of 4096
 const int DIR_REST			= 395;  // Steering wheel in the center position
 
 class PCA9685 {

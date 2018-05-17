@@ -25,30 +25,30 @@ void intersection_point(cv::Point& inter, const int& x0_r, const int& x1_r, cons
 int main(int argc, const char** argv)
 {
 	// Canny's related parameters
-	const double lowThreshold = 60.0;
-	const double highThreshold = 150.0;
-	const int minLineLength = 50;
+    const double lowThreshold = 60.0;
+    const double highThreshold = 150.0;
+    const int minLineLength = 50;
     const int maxLineGap = 10;
-	int ratio = 3;
-	int kernel_size = 3;
+    int ratio = 3;
+    int kernel_size = 3;
     int houghVote = 200;
     cv::Vec4f r_lane, l_lane;
     int x_r, x_l;
 
-	bool showHelp = true;
-	bool fullScreen = false;
-	const std::string windowName = "Camera Output";
+    bool showHelp = true;
+    bool fullScreen = false;
+    const std::string windowName = "Camera Output";
 
-	const std::string gst =  "nvcamerasrc ! video/x-raw(memory:NVMM), width=(int)1280, height=(int)720, \
+    const std::string gst =  "nvcamerasrc ! video/x-raw(memory:NVMM), width=(int)1280, height=(int)720, \
 							format=(string)I420, framerate=(fraction)120/1 ! \
 							nvvidconv flip-method=0 ! video/x-raw, format=(string)BGRx ! \
 							videoconvert ! video/x-raw, format=(string)BGR ! \
 							appsink";
 
-	cv::VideoCapture cap;//(gst);
-	cap.open("../docs/sample-videos/solidWhiteRight.mp4");
+    cv::VideoCapture cap(gst);
+    //cap.open("../docs/sample-videos/solidWhiteRight.mp4");
 
-	if(!cap.isOpened())
+    if(!cap.isOpened())
 	{
 		std::cout << "Failed to open camera." << std::endl;
 		return -1;
