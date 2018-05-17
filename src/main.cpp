@@ -6,8 +6,10 @@
 #include <linux/types.h>
 #include <chrono>
 #include <thread>
+#include <string>
 
 #include "PCA9685.h"
+#include "PID.h"
 
 #include <opencv2/opencv.hpp>
 #include <opencv2/videoio.hpp>
@@ -33,6 +35,8 @@ int main(int argc, const char** argv)
     // Motor related parameters
     PCA9685 pwm(1, 0x40);
     pwm.setPwmFreq(65);
+    
+    PID pid = PID(0.1, LEFT_MAX, RIGHT_MAX, 1, 0, 0);
 
     const uint8_t motor = 0;
     const uint8_t steering = 1;
@@ -52,7 +56,7 @@ int main(int argc, const char** argv)
     bool fullScreen = false;
     const std::string windowName = "Camera Output";
 
-    const std::string gst =  "nvcamerasrc ! video/x-raw(memory:NVMM), width=(int)1280, height=(int)720, \
+    const std::string gst =  "nvcamerasrc ! video/x-raw(memory:NVMM), width=(int)800, height=(int)600, \
                             format=(string)I420, framerate=(fraction)120/1 ! \
                             nvvidconv flip-method=0 ! video/x-raw, format=(string)BGRx ! \
                             videoconvert ! video/x-raw, format=(string)BGR ! \
@@ -115,9 +119,9 @@ int main(int argc, const char** argv)
         //draw_lane(line_image, l, l_lane, x0_l, x1_l, y0_l, y1_l, srcWidth, srcHeight, cv::Scalar(255, 0, 0));
         
         // Measure where is the center of the lane and where you are placed
-        int center = srcWidth/2;
-        int inter = x_l + (x_r - x_l)/2;
-        int pos = center - inter;      
+        double center = srcWidth/2;
+        double inter = x_l + (x_r - x_l)/2.0;
+        double pos = inter - center + DIR_REST;      
         
         cv::line(line_image, cv::Point(inter, srcHeight), cv::Point(inter, srcHeight-50), cv::Scalar(0, 0, 255), 3, cv::LINE_AA);
         cv::line(line_image, cv::Point(center, srcHeight), cv::Point(center, srcHeight-50), cv::Scalar(0, 255, 0), 3, cv::LINE_AA);
@@ -130,16 +134,22 @@ int main(int argc, const char** argv)
         if (key == 27)
             break;
             
-        if(pos < 0)
+        double inc = pid.calculate(395, pos);
+        pwm.setPwm(steering, inc);
+        
+        
+        if(pos < 395) //Turn left
         {
-            pwm.setPwm(steering, SERVO_MAX);
+            //pwm.setPwm(steering, RIGHT_MAX);
             //std::this_thread::sleep_for(std::chrono::microseconds(1000000));
-            cv::putText(dst, "Right", cv::Point(10,40), cv::FONT_HERSHEY_DUPLEX, 0.5, CV_RGB(240,240,240), 1);
+            std::string strPos = "Turn left: " + std::to_string(pos) + " - " + std::to_string(inc);
+            cv::putText(dst, strPos, cv::Point(10,40), cv::FONT_HERSHEY_DUPLEX, 0.5, CV_RGB(240,240,240), 1);
         }
-        else
+        else //Turn right
         {
-            cv::putText(dst, "Left", cv::Point(10,40), cv::FONT_HERSHEY_DUPLEX, 0.5, CV_RGB(240,240,240), 1);
-            pwm.setPwm(steering, SERVO_MIN);
+            std::string strPos = "Turn right: " + std::to_string(pos) + " - " + std::to_string(inc);
+            cv::putText(dst, strPos, cv::Point(10,40), cv::FONT_HERSHEY_DUPLEX, 0.5, CV_RGB(240,240,240), 1);
+            //pwm.setPwm(steering, LEFT_MAX);
             //std::this_thread::sleep_for(std::chrono::microseconds(1000000));
         }
 

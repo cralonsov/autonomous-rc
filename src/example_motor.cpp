@@ -13,13 +13,16 @@ int main()
 
     const uint8_t motor = 0;
     const uint8_t steering = 1;
+    double speed = 395.0 - 50.0;
 
     //pwm.setPwm(motor, SERVO_MIN);
     //std::this_thread::sleep_for(std::chrono::microseconds(1000000));
-    pwm.setPwm(steering, LEFT_MAX);
+    std::this_thread::sleep_for(std::chrono::microseconds(10000000));
+    pwm.setPwm(steering, DIR_REST);
 	std::this_thread::sleep_for(std::chrono::microseconds(1000000));
-	pwm.setPwm(steering, RIGHT_MAX);
-    std::this_thread::sleep_for(std::chrono::microseconds(1000000));
+	pwm.setPwm(motor, speed);
+    std::this_thread::sleep_for(std::chrono::microseconds(2000000));
+    pwm.setPwm(motor, 0);
     
 	int a;
 
