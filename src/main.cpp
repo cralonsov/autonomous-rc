@@ -40,6 +40,7 @@ int main(int argc, const char** argv)
 
     const uint8_t motor = 0;
     const uint8_t steering = 1;
+    double speed = 382.0;
 
     // Canny's related parameters
     const double lowThreshold = 60.0;
@@ -154,9 +155,13 @@ int main(int argc, const char** argv)
         }
 
         window_management(dst, windowName, showHelp, fullScreen, key);
+        
+        pwm.setPwm(motor, speed);
 
         cv::imshow(windowName, dst);
     }
+    
+    pwm.setAllPwm(0, 0);
 
     return 0;
 }
