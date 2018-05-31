@@ -40,7 +40,7 @@ int main(int argc, const char** argv)
 
     const uint8_t motor = 0;
     const uint8_t steering = 1;
-    double speed = 382.0;
+    double speed = 380.0;
 
     // Canny's related parameters
     const double lowThreshold = 60.0;
@@ -57,8 +57,8 @@ int main(int argc, const char** argv)
     bool fullScreen = false;
     const std::string windowName = "Camera Output";
 
-    const std::string gst =  "nvcamerasrc ! video/x-raw(memory:NVMM), width=(int)800, height=(int)600, \
-                            format=(string)I420, framerate=(fraction)120/1 ! \
+    const std::string gst =  "nvcamerasrc ! video/x-raw(memory:NVMM), width=(int)1024, height=(int)768, \
+                            format=(string)I420, framerate=(fraction)60/1 ! \
                             nvvidconv flip-method=0 ! video/x-raw, format=(string)BGRx ! \
                             videoconvert ! video/x-raw, format=(string)BGR ! \
                             appsink";
@@ -97,8 +97,8 @@ int main(int argc, const char** argv)
 
         std::vector<cv::Point> vertices{cv::Point(srcWidth, srcHeight), \
                                         cv::Point(0, srcHeight), \
-                                        cv::Point(int(srcWidth/2-10), int(2*srcHeight/3)), \
-                                        cv::Point(int(srcWidth/2+10), int(2*srcHeight/3))};
+                                        cv::Point(0, int(2*srcHeight/3)), \
+                                        cv::Point(srcWidth, int(2*srcHeight/3))};
 
         masked_image = region_of_interest(edges, vertices);
 
@@ -159,6 +159,13 @@ int main(int argc, const char** argv)
         pwm.setPwm(motor, speed);
 
         cv::imshow(windowName, dst);
+        std::string strText = "Left m: " + std::to_string(left.m) + ", Right m: " + std::to_string(right.m);
+        cv::putText(line_image, strText, cv::Point(10,40), cv::FONT_HERSHEY_DUPLEX, 0.5, CV_RGB(240,240,240), 1);
+        strText = "Left b: " + std::to_string(left.b) + ", Right m: " + std::to_string(right.b);
+        cv::putText(line_image, strText, cv::Point(10,80), cv::FONT_HERSHEY_DUPLEX, 0.5, CV_RGB(240,240,240), 1);
+        cv::imshow("Lines", line_image);
+        cv::imshow("Masked", masked_image);
+        
     }
     
     pwm.setAllPwm(0, 0);
@@ -244,15 +251,15 @@ void get_lanes(const std::vector<cv::Vec4i> lines, Lane& right, Lane& left, std:
         }
         
         // Remember coordinates in OpenCV are different (The y is upside-down)
-        if(lane.m < 0 && p1.x < srcWidth/2 && p2.x < srcWidth/2)
-        {
-            r_b.push_back(lane.b); r_m.push_back(lane.m);
-            weights_r.push_back(length);
-        }
-        else if(lane.m > 0 && p1.x > srcWidth/2 && p2.x > srcWidth/2)
+        if(lane.m < -0.4 && p1.x < srcWidth/2 && p2.x < srcWidth/2)
         {
             l_b.push_back(lane.b); l_m.push_back(lane.m);
             weights_l.push_back(length);
+        }
+        else if(lane.m > 0.4 && p1.x > srcWidth/2 && p2.x > srcWidth/2)
+        {
+            r_b.push_back(lane.b); r_m.push_back(lane.m);
+            weights_r.push_back(length);
         }
     }
     
