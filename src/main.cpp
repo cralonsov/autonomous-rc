@@ -63,8 +63,8 @@ int main(int argc, const char** argv)
                             videoconvert ! video/x-raw, format=(string)BGR ! \
                             appsink";
 
-    cv::VideoCapture cap(gst);
-    //cap.open("../docs/sample-videos/solidYellowLeft.mp4");
+    cv::VideoCapture cap;//(gst);
+    cap.open("../media/sample-videos/video_20180531_201943.avi");
 
     if(!cap.isOpened())
     {
@@ -74,6 +74,17 @@ int main(int argc, const char** argv)
 
     cv::Mat src, edges, dst, masked_image;
     cv::namedWindow(windowName, 1);
+
+    double dWidth = cap.get(CV_CAP_PROP_FRAME_WIDTH); 
+    double dHeight = cap.get(CV_CAP_PROP_FRAME_HEIGHT); 
+    cv::Size frameSize(dWidth, dHeight);
+
+    cv::VideoWriter cannyOutput("canny-edge-manual.avi", CV_FOURCC('P','I','M','1'), 30, frameSize,true);
+    if ( !cannyOutput.isOpened() ) 
+    {
+      std::cout << "ERROR: Failed to write the video" << std::endl;
+      return -1;
+    }
 
     while(true)
     {
@@ -158,14 +169,22 @@ int main(int argc, const char** argv)
         
         pwm.setPwm(motor, speed);
 
+        cv::namedWindow("Lines", CV_WINDOW_NORMAL);
+        cv::resizeWindow("Lines", int(srcWidth/2), int(srcHeight/2));
+        cv::moveWindow("Lines", srcWidth+80, 0);
+        cannyOutput.write(masked_image);
+
+        cv::namedWindow("Canny Edge", CV_WINDOW_NORMAL);
+        cv::resizeWindow("Canny Edge", int(srcWidth/2),int(srcHeight/2));
+        cv::moveWindow("Canny Edge", srcWidth+80, int(srcHeight/2)+80);
+
         cv::imshow(windowName, dst);
         std::string strText = "Left m: " + std::to_string(left.m) + ", Right m: " + std::to_string(right.m);
         cv::putText(line_image, strText, cv::Point(10,40), cv::FONT_HERSHEY_DUPLEX, 0.5, CV_RGB(240,240,240), 1);
         strText = "Left b: " + std::to_string(left.b) + ", Right m: " + std::to_string(right.b);
         cv::putText(line_image, strText, cv::Point(10,80), cv::FONT_HERSHEY_DUPLEX, 0.5, CV_RGB(240,240,240), 1);
         cv::imshow("Lines", line_image);
-        cv::imshow("Masked", masked_image);
-        
+        cv::imshow("Canny Edge", masked_image);
     }
     
     pwm.setAllPwm(0, 0);
