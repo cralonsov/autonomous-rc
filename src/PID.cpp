@@ -51,7 +51,7 @@ PIDImpl::PIDImpl( double dt, double max, double min, double Kp, double Kd, doubl
     _Kd(Kd),
     _Ki(Ki),
     _pre_error(0),
-    _integral(0)
+    _integral(0)//395/(Ki+0.0001))
 {
 }
 
@@ -66,7 +66,7 @@ double PIDImpl::calculate( double setpoint, double pv )
 
     // Integral term
     _integral += error * _dt;
-    double Iout = 395;//_Ki * _integral;
+    double Iout = 395;//_Ki * _integral; //setpoint without integral
 
     // Derivative term
     double derivative = (error - _pre_error) / _dt;

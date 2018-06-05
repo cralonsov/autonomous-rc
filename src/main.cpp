@@ -36,14 +36,14 @@ int main(int argc, const char** argv)
     PCA9685 pwm(1, 0x40);
     pwm.setPwmFreq(65);
     
-    PID pid = PID(0.1, LEFT_MAX, RIGHT_MAX, 1, 0, 0);
+    PID pid = PID(0.1, LEFT_MAX, RIGHT_MAX, 0.3, 0, 0);
 
     const uint8_t motor = 0;
     const uint8_t steering = 1;
-    double speed = 379.0;
+    double speed = 382.0;
 
     // Canny's related parameters
-    const double lowThreshold = 60.0;
+    const double lowThreshold = 100.0;
     const double highThreshold = 150.0;
     const int minLineLength = 50;
     const int maxLineGap = 10;
@@ -78,13 +78,6 @@ int main(int argc, const char** argv)
     double dWidth = cap.get(CV_CAP_PROP_FRAME_WIDTH); 
     double dHeight = cap.get(CV_CAP_PROP_FRAME_HEIGHT); 
     cv::Size frameSize(dWidth, dHeight);
-
-    cv::VideoWriter cannyOutput("canny-edge-manual.avi", CV_FOURCC('P','I','M','1'), 30, frameSize,true);
-    if ( !cannyOutput.isOpened() ) 
-    {
-      std::cout << "ERROR: Failed to write the video" << std::endl;
-      return -1;
-    }
 
     while(true)
     {
@@ -172,7 +165,6 @@ int main(int argc, const char** argv)
         cv::namedWindow("Lines", CV_WINDOW_NORMAL);
         cv::resizeWindow("Lines", int(srcWidth/2), int(srcHeight/2));
         cv::moveWindow("Lines", srcWidth+80, 0);
-        cannyOutput.write(masked_image);
 
         cv::namedWindow("Canny Edge", CV_WINDOW_NORMAL);
         cv::resizeWindow("Canny Edge", int(srcWidth/2),int(srcHeight/2));
@@ -181,8 +173,10 @@ int main(int argc, const char** argv)
         cv::imshow(windowName, dst);
         std::string strText = "Left m: " + std::to_string(left.m) + ", Right m: " + std::to_string(right.m);
         cv::putText(line_image, strText, cv::Point(10,40), cv::FONT_HERSHEY_DUPLEX, 0.5, CV_RGB(240,240,240), 1);
+        std::cout << strText << std::endl;
         strText = "Left b: " + std::to_string(left.b) + ", Right b: " + std::to_string(right.b);
         cv::putText(line_image, strText, cv::Point(10,80), cv::FONT_HERSHEY_DUPLEX, 0.5, CV_RGB(240,240,240), 1);
+        std::cout << strText << std::endl;
         cv::imshow("Lines", line_image);
         cv::imshow("Canny Edge", masked_image);
     }
@@ -270,12 +264,12 @@ void get_lanes(const std::vector<cv::Vec4i> lines, Lane& right, Lane& left, std:
         }
         
         // Remember coordinates in OpenCV are different (The y is upside-down)
-        if(lane.m < -0.4 && p1.x < srcWidth/2 && p2.x < srcWidth/2)
+        if(lane.m < -0.2 && p1.x < srcWidth/2 && p2.x < srcWidth/2)
         {
             l_b.push_back(lane.b); l_m.push_back(lane.m);
             weights_l.push_back(length);
         }
-        else if(lane.m > 0.4 && p1.x > srcWidth/2 && p2.x > srcWidth/2)
+        else if(lane.m > 0.2 && p1.x > srcWidth/2 && p2.x > srcWidth/2)
         {
             r_b.push_back(lane.b); r_m.push_back(lane.m);
             weights_r.push_back(length);
