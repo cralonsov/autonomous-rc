@@ -40,7 +40,7 @@ int main(int argc, const char** argv)
 
     const uint8_t motor = 0;
     const uint8_t steering = 1;
-    double speed = 380.0;
+    double speed = 379.0;
 
     // Canny's related parameters
     const double lowThreshold = 60.0;
@@ -63,8 +63,8 @@ int main(int argc, const char** argv)
                             videoconvert ! video/x-raw, format=(string)BGR ! \
                             appsink";
 
-    cv::VideoCapture cap;//(gst);
-    cap.open("../media/sample-videos/video_20180531_201943.avi");
+    cv::VideoCapture cap(gst);
+    //cap.open("../media/sample-videos/video_20180531_201943.avi");
 
     if(!cap.isOpened())
     {
@@ -181,7 +181,7 @@ int main(int argc, const char** argv)
         cv::imshow(windowName, dst);
         std::string strText = "Left m: " + std::to_string(left.m) + ", Right m: " + std::to_string(right.m);
         cv::putText(line_image, strText, cv::Point(10,40), cv::FONT_HERSHEY_DUPLEX, 0.5, CV_RGB(240,240,240), 1);
-        strText = "Left b: " + std::to_string(left.b) + ", Right m: " + std::to_string(right.b);
+        strText = "Left b: " + std::to_string(left.b) + ", Right b: " + std::to_string(right.b);
         cv::putText(line_image, strText, cv::Point(10,80), cv::FONT_HERSHEY_DUPLEX, 0.5, CV_RGB(240,240,240), 1);
         cv::imshow("Lines", line_image);
         cv::imshow("Canny Edge", masked_image);
@@ -240,9 +240,9 @@ cv::Mat region_of_interest(const cv::Mat& src, const std::vector<cv::Point>& v)
 void draw_lane(cv::Mat& line_image, const Lane& lane, int& x, const int& srcWidth, const int& srcHeight, const cv::Scalar& color)
 {    
     int y0 = srcHeight * 2/3;
-    int x0 = (y0 - lane.b) / lane.m;
+    int x0 = (y0 - lane.b) / lane.m * (lane.m != -1.0) + ((lane.m == -1.0) * lane.b);
     int y1 = srcHeight;
-    int x1 = (y1 - lane.b) / lane.m;
+    int x1 = (y1 - lane.b) / lane.m * (lane.m != -1.0) + ((lane.m == -1.0) * lane.b);
     
     x = x0;
     
@@ -287,11 +287,21 @@ void get_lanes(const std::vector<cv::Vec4i> lines, Lane& right, Lane& left, std:
         right.m = std::inner_product(weights_r.begin(), weights_r.end(), r_m.begin(), 0.0) / std::accumulate(weights_r.begin(), weights_r.end(), 0.0);
         right.b = std::inner_product(weights_r.begin(), weights_r.end(), r_b.begin(), 0.0) / std::accumulate(weights_r.begin(), weights_r.end(), 0.0);
     }
+    else
+    {
+        right.m = -1.0;
+        right.b = srcWidth;
+    }
     
     if(l_m.size() != 0)
     {
         left.m = std::inner_product(weights_l.begin(), weights_l.end(), l_m.begin(), 0.0) / std::accumulate(weights_l.begin(), weights_l.end(), 0.0);
         left.b = std::inner_product(weights_l.begin(), weights_l.end(), l_b.begin(), 0.0) / std::accumulate(weights_l.begin(), weights_l.end(), 0.0);
+    }
+    else
+    {
+        left.m = -1.0;
+        left.b = 0.0;
     }
 }
 
